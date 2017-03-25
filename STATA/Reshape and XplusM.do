@@ -1,8 +1,9 @@
 set more off
-cd "\\data4\users2\CIntal\My Documents\~Machine Learning - Python"
+
 
 ******PART 2************
 foreach x in SITC9_Commodities SITC8_Misc SITC7_Machinery SITC6_Manuf SITC5_Chemicals SITC4_AnimalVegOils SITC3_MineralFuels SITC2_Crude SITC1_BevTobacco SITC0_Food All {
+cd "\\data4\users2\CIntal\My Documents\~Machine Learning - Python"
 
 use `x'.dta, clear
 
@@ -532,54 +533,51 @@ replace partner="WesternSahara" if partner=="Western Sahara"
 
 ren partner target
 drop if c==.
+
 // where c is the size of the flow
 ren c edgewidth
 order source, first
 sort source target
 label var source "exporting country"
 
+cd "\\data4\users2\CIntal\My Documents\~Machine Learning - Python\Graph Analysis"
 
 save DiGraph_`x'.dta, replace
 
-**** To create the directed graph
+
 sort source target
-//pair = exporter_destinationcountry
 gen pair = source+"_"+target
-gen exportVol=edgewidth
+gen Volume1=abs(edgewidth)
 drop source target edgewidth
 sort pair
 save temp, replace
 
 use DiGraph_`x'.dta, clear
 sort target source
-//pair = importer_exporter
 gen pair=target+"_"+source
-gen importVol=edgewidth
+gen Volume2=abs(edgewidth)
 drop source target edgewidth
 sort pair
 
 merge 1:1 pair using temp.dta
-gen net_exp=exportVol-importVol
+gen flow=Volume1+Volume2
 
-keep if net_exp>0
-drop if net_exp==.
-
-drop importVol exportVol _merge
+drop Volume1 Volume2 _merge
 split pair, p(_)
 drop pair
-ren pair1 source
-label var source "exporting from:"
-ren pair2 target 
-label var target "to:"
 
-su net_exp, meanonly
-gen	weight	=	(net_exp	-	r(min))	/	(r(max)	-	r(min))
+duplicates drop flow, force
+
+su flow
+gen weight = (flow-r(min))/(r(max)-r(min))
 format weight %8.2f
-label var weight "Edge weights = net_exp in USD, normalized 0 to 1"
+label var weight "Weight of flows, normalized 0 to 1"
 
-order net_exp, last
+order flow, last
+ren pair1 source
+ren pair2 target
 
-outsheet source target weight net_exp using UDGraph`x'.csv, comma replace
+outsheet source target weight flow using UDGraph`x'.csv, comma replace
 
 }
 
